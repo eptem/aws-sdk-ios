@@ -289,7 +289,7 @@ static NSString *const AWSPinpointContextKeychainUniqueIdKey = @"com.amazonaws.A
 }
 
 - (AWSTask<NSString*>*) token {
-    return [[[self currentUser] getSession] continueWithSuccessBlock:^id _Nullable(AWSTask<AWSCognitoIdentityUserSession *> * _Nonnull task) {
+    return [[[self currentUser] getSessionWithForceReload:NO] continueWithSuccessBlock:^id _Nullable(AWSTask<AWSCognitoIdentityUserSession *> * _Nonnull task) {
         return [AWSTask taskWithResult:task.result.idToken.tokenString];
     }];
 }

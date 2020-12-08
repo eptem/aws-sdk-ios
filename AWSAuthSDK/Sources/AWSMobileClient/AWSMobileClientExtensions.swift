@@ -755,7 +755,7 @@ extension AWSMobileClient {
     /// The call to wait will be synchronized so that if multiple threads call this method, they will block till the first thread gets the token.
     ///
     /// - Parameter completionHandler: Tokens if available, else error.
-    public func getTokens(_ completionHandler: @escaping (Tokens?, Error?) -> Void) {
+    public func getTokens(withForceRefresh: Bool = false, _ completionHandler: @escaping (Tokens?, Error?) -> Void) {
         switch self.federationProvider {
         case .userPools, .hostedUI:
             break
@@ -795,7 +795,7 @@ extension AWSMobileClient {
             self.userpoolOpsHelper.authHelperDelegate = self
             self.tokenFetchOperationQueue.addOperation {
                 self.tokenFetchLock.enter()
-                self.currentUser?.getSession().continueWith(block: { (task) -> Any? in
+                self.currentUser?.getSessionWithForceReload(true).continueWith(block: { (task) -> Any? in
                     if let error = task.error {
                         completionHandler(nil, error)
                         self.invokeSignInCallback(signResult: nil, error: error)

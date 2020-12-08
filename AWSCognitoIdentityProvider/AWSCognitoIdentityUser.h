@@ -103,7 +103,7 @@ NS_ASSUME_NONNULL_BEGIN
 /**
  Get a session with id, access and refresh tokens.
  */
-- (AWSTask<AWSCognitoIdentityUserSession *> *)getSession;
+- (AWSTask<AWSCognitoIdentityUserSession *> *)getSessionWithForceReload:(BOOL)withForceReload;
 
 /**
  Get a session with the following username and password

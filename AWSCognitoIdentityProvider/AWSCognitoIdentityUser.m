@@ -161,7 +161,7 @@ static const NSString * AWSCognitoIdentityUserUserAttributePrefix = @"userAttrib
     AWSCognitoIdentityProviderChangePasswordRequest* request = [AWSCognitoIdentityProviderChangePasswordRequest new];
     request.previousPassword = currentPassword;
     request.proposedPassword = proposedPassword;
-    return [[self getSession] continueWithSuccessBlock:^id _Nullable(AWSTask<AWSCognitoIdentityUserSession *> * _Nonnull task) {
+    return [[self getSessionWithForceReload:NO] continueWithSuccessBlock:^id _Nullable(AWSTask<AWSCognitoIdentityUserSession *> * _Nonnull task) {
         request.accessToken = task.result.accessToken.tokenString;
         return [[self.pool.client changePassword:request] continueWithSuccessBlock:^id _Nullable(AWSTask<AWSCognitoIdentityProviderChangePasswordResponse *> * _Nonnull task) {
             AWSCognitoIdentityProviderChangePasswordResponse * apiResponse = task.result;
@@ -175,7 +175,7 @@ static const NSString * AWSCognitoIdentityUserUserAttributePrefix = @"userAttrib
 
 -(AWSTask<AWSCognitoIdentityUserGetDetailsResponse *>*) getDetails {
     AWSCognitoIdentityProviderGetUserRequest* request = [AWSCognitoIdentityProviderGetUserRequest new];
-    return [[self getSession] continueWithSuccessBlock:^id _Nullable(AWSTask<AWSCognitoIdentityUserSession *> * _Nonnull task) {
+    return [[self getSessionWithForceReload:NO] continueWithSuccessBlock:^id _Nullable(AWSTask<AWSCognitoIdentityUserSession *> * _Nonnull task) {
         request.accessToken = task.result.accessToken.tokenString;
         return [[self.pool.client getUser:request] continueWithSuccessBlock:^id _Nullable(AWSTask<AWSCognitoIdentityProviderGetUserResponse *> * _Nonnull task) {
             AWSCognitoIdentityUserGetDetailsResponse * response = [AWSCognitoIdentityUserGetDetailsResponse new];
@@ -214,7 +214,7 @@ static const NSString * AWSCognitoIdentityUserUserAttributePrefix = @"userAttrib
 /**
  Get a session
  */
--(AWSTask<AWSCognitoIdentityUserSession*> *) getSession {
+- (AWSTask<AWSCognitoIdentityUserSession *> *)getSessionWithForceReload:(BOOL)withForceReload {
     
     //check to see if we have valid tokens
     __block NSString * keyChainNamespace = [self keyChainNamespaceClientId];
@@ -248,11 +248,12 @@ static const NSString * AWSCognitoIdentityUserUserAttributePrefix = @"userAttrib
         // since user can change both of them in Cognito console.
         if(session
            && [self isSessionValid:session]
+           && !withForceReload
            && [expiration compare:[NSDate dateWithTimeIntervalSinceNow:2 * 60]] == NSOrderedDescending) {
             return [AWSTask taskWithResult:session];
         }
         //else refresh it using the refresh token
-        else if(refreshToken){
+        else if(refreshToken || withForceReload){
             AWSCognitoIdentityProviderInitiateAuthRequest * request = [AWSCognitoIdentityProviderInitiateAuthRequest new];
             request.authFlow = AWSCognitoIdentityProviderAuthFlowTypeRefreshTokenAuth;
             request.clientId = self.pool.userPoolConfiguration.clientId;
@@ -1266,7 +1267,7 @@ static const NSString * AWSCognitoIdentityUserUserAttributePrefix = @"userAttrib
 -(AWSTask<AWSCognitoIdentityUserUpdateAttributesResponse *>*) updateAttributes: (NSArray<AWSCognitoIdentityUserAttributeType *>*) attributes
                                                                 clientMetaData: (nullable NSDictionary<NSString *,NSString *> *) clientMetaData {
     AWSCognitoIdentityProviderUpdateUserAttributesRequest *request = [AWSCognitoIdentityProviderUpdateUserAttributesRequest new];
-    return [[self getSession] continueWithSuccessBlock:^id _Nullable(AWSTask<AWSCognitoIdentityUserSession *> * _Nonnull task) {
+    return [[self getSessionWithForceReload:NO] continueWithSuccessBlock:^id _Nullable(AWSTask<AWSCognitoIdentityUserSession *> * _Nonnull task) {
         request.accessToken = task.result.accessToken.tokenString;
         NSMutableArray *userAttributes = [NSMutableArray new];
         request.userAttributes = userAttributes;
@@ -1296,7 +1297,7 @@ static const NSString * AWSCognitoIdentityUserUserAttributePrefix = @"userAttrib
  */
 -(AWSTask<AWSCognitoIdentityUserDeleteAttributesResponse *>*) deleteAttributes: (NSArray<NSString *>*) attributeNames {
     AWSCognitoIdentityProviderDeleteUserAttributesRequest *request = [AWSCognitoIdentityProviderDeleteUserAttributesRequest new];
-    return [[self getSession] continueWithSuccessBlock:^id _Nullable(AWSTask<AWSCognitoIdentityUserSession *> * _Nonnull task) {
+    return [[self getSessionWithForceReload:NO] continueWithSuccessBlock:^id _Nullable(AWSTask<AWSCognitoIdentityUserSession *> * _Nonnull task) {
         request.accessToken = task.result.accessToken.tokenString;
         request.userAttributeNames = attributeNames;
         return [[self.pool.client deleteUserAttributes:request] continueWithSuccessBlock:^id _Nullable(AWSTask<AWSCognitoIdentityProviderDeleteUserAttributesResponse *> * _Nonnull task) {
@@ -1312,7 +1313,7 @@ static const NSString * AWSCognitoIdentityUserUserAttributePrefix = @"userAttrib
  */
 -(AWSTask<AWSCognitoIdentityUserVerifyAttributeResponse *>*) verifyAttribute: (NSString *) attributeName code: (NSString *) code {
     AWSCognitoIdentityProviderVerifyUserAttributeRequest *request = [AWSCognitoIdentityProviderVerifyUserAttributeRequest new];
-    return [[self getSession] continueWithSuccessBlock:^id _Nullable(AWSTask<AWSCognitoIdentityUserSession *> * _Nonnull task) {
+    return [[self getSessionWithForceReload:NO] continueWithSuccessBlock:^id _Nullable(AWSTask<AWSCognitoIdentityUserSession *> * _Nonnull task) {
         request.accessToken = task.result.accessToken.tokenString;
         request.attributeName = attributeName;
         request.code = code;
@@ -1330,7 +1331,7 @@ static const NSString * AWSCognitoIdentityUserUserAttributePrefix = @"userAttrib
 -(AWSTask<AWSCognitoIdentityUserGetAttributeVerificationCodeResponse *>*) getAttributeVerificationCode: (NSString *) attributeName
                                                                                         clientMetaData: (nullable NSDictionary<NSString *,NSString *> *) clientMetaData {
     AWSCognitoIdentityProviderGetUserAttributeVerificationCodeRequest *request = [AWSCognitoIdentityProviderGetUserAttributeVerificationCodeRequest new];
-    return [[self getSession] continueWithSuccessBlock:^id _Nullable(AWSTask<AWSCognitoIdentityUserSession *> * _Nonnull task) {
+    return [[self getSessionWithForceReload:NO] continueWithSuccessBlock:^id _Nullable(AWSTask<AWSCognitoIdentityUserSession *> * _Nonnull task) {
         request.accessToken = task.result.accessToken.tokenString;
         request.attributeName = attributeName;
         request.clientMetadata = clientMetaData;
@@ -1352,7 +1353,7 @@ static const NSString * AWSCognitoIdentityUserUserAttributePrefix = @"userAttrib
 -(AWSTask<AWSCognitoIdentityUserSetUserSettingsResponse *>*) setUserSettings: (AWSCognitoIdentityUserSettings *) settings; {
     
     AWSCognitoIdentityProviderSetUserSettingsRequest *request = [AWSCognitoIdentityProviderSetUserSettingsRequest new];
-    return [[self getSession] continueWithSuccessBlock:^id _Nullable(AWSTask<AWSCognitoIdentityUserSession *> * _Nonnull task) {
+    return [[self getSessionWithForceReload:NO] continueWithSuccessBlock:^id _Nullable(AWSTask<AWSCognitoIdentityUserSession *> * _Nonnull task) {
         request.accessToken = task.result.accessToken.tokenString;
         NSMutableArray * mfaOptions = [NSMutableArray new];
         for(AWSCognitoIdentityUserMFAOption* mfaOption in settings.mfaOptions){
@@ -1387,7 +1388,7 @@ static const NSString * AWSCognitoIdentityUserUserAttributePrefix = @"userAttrib
         request.softwareTokenMfaSettings = softwareTokenMfaSettings;
     }
     
-    return [[[self getSession] continueWithSuccessBlock:^id _Nullable(AWSTask<AWSCognitoIdentityUserSession *> * _Nonnull task) {
+    return [[[self getSessionWithForceReload:NO] continueWithSuccessBlock:^id _Nullable(AWSTask<AWSCognitoIdentityUserSession *> * _Nonnull task) {
         request.accessToken = task.result.accessToken.tokenString;
         return [self.pool.client setUserMFAPreference:request];
     }] continueWithSuccessBlock:^id _Nullable(AWSTask<AWSCognitoIdentityProviderSetUserMFAPreferenceResponse *> * _Nonnull task) {
@@ -1403,7 +1404,7 @@ static const NSString * AWSCognitoIdentityUserUserAttributePrefix = @"userAttrib
  */
 -(AWSTask<AWSCognitoIdentityUserAssociateSoftwareTokenResponse *>*) associateSoftwareToken {
     AWSCognitoIdentityProviderAssociateSoftwareTokenRequest * request = [AWSCognitoIdentityProviderAssociateSoftwareTokenRequest new];
-    return [[[self getSession] continueWithSuccessBlock:^id _Nullable(AWSTask<AWSCognitoIdentityUserSession *> * _Nonnull task) {
+    return [[[self getSessionWithForceReload:NO] continueWithSuccessBlock:^id _Nullable(AWSTask<AWSCognitoIdentityUserSession *> * _Nonnull task) {
         request.accessToken = task.result.accessToken.tokenString;
         return [self.pool.client associateSoftwareToken:request];
     }] continueWithSuccessBlock:^id _Nullable(AWSTask<AWSCognitoIdentityUserAssociateSoftwareTokenResponse *> * _Nonnull task) {
@@ -1422,7 +1423,7 @@ static const NSString * AWSCognitoIdentityUserUserAttributePrefix = @"userAttrib
     AWSCognitoIdentityProviderVerifySoftwareTokenRequest *request = [AWSCognitoIdentityProviderVerifySoftwareTokenRequest new];
     request.friendlyDeviceName = friendlyDeviceName;
     request.userCode = userCode;
-    return [[[self getSession] continueWithSuccessBlock:^id _Nullable(AWSTask<AWSCognitoIdentityUserSession *> * _Nonnull task) {
+    return [[[self getSessionWithForceReload:NO] continueWithSuccessBlock:^id _Nullable(AWSTask<AWSCognitoIdentityUserSession *> * _Nonnull task) {
         request.accessToken = task.result.accessToken.tokenString;
         return [self.pool.client verifySoftwareToken:request];
     }] continueWithSuccessBlock:^id _Nullable(AWSTask<AWSCognitoIdentityProviderVerifySoftwareTokenResponse *> * _Nonnull task) {
@@ -1437,7 +1438,7 @@ static const NSString * AWSCognitoIdentityUserUserAttributePrefix = @"userAttrib
  */
 -(AWSTask*) deleteUser {
     AWSCognitoIdentityProviderDeleteUserRequest *request = [AWSCognitoIdentityProviderDeleteUserRequest new];
-    return [[self getSession] continueWithSuccessBlock:^id _Nullable(AWSTask<AWSCognitoIdentityUserSession *> * _Nonnull task) {
+    return [[self getSessionWithForceReload:NO] continueWithSuccessBlock:^id _Nullable(AWSTask<AWSCognitoIdentityUserSession *> * _Nonnull task) {
         request.accessToken = task.result.accessToken.tokenString;
         return [self.pool.client deleteUser:request];
     }];
@@ -1490,7 +1491,7 @@ static const NSString * AWSCognitoIdentityUserUserAttributePrefix = @"userAttrib
 
 - (AWSTask<AWSCognitoIdentityUserGlobalSignOutResponse *> *) globalSignOut {
     AWSCognitoIdentityProviderGlobalSignOutRequest *request = [AWSCognitoIdentityProviderGlobalSignOutRequest new];
-    return [[self getSession] continueWithSuccessBlock:^id _Nullable(AWSTask<AWSCognitoIdentityUserSession *> * _Nonnull task) {
+    return [[self getSessionWithForceReload:NO] continueWithSuccessBlock:^id _Nullable(AWSTask<AWSCognitoIdentityUserSession *> * _Nonnull task) {
         request.accessToken = task.result.accessToken.tokenString;
         return [[self.pool.client globalSignOut:request] continueWithSuccessBlock:^id _Nullable(AWSTask<AWSCognitoIdentityProviderGlobalSignOutResponse *> * _Nonnull task) {
             [self signOut];
@@ -1501,7 +1502,7 @@ static const NSString * AWSCognitoIdentityUserUserAttributePrefix = @"userAttrib
 
 - (AWSTask<AWSCognitoIdentityUserListDevicesResponse *> *) listDevices:(int) limit paginationToken:(NSString * _Nullable) paginationToken {
     AWSCognitoIdentityProviderListDevicesRequest *request = [AWSCognitoIdentityProviderListDevicesRequest new];
-    return [[self getSession] continueWithSuccessBlock:^id _Nullable(AWSTask<AWSCognitoIdentityUserSession *> * _Nonnull task) {
+    return [[self getSessionWithForceReload:NO] continueWithSuccessBlock:^id _Nullable(AWSTask<AWSCognitoIdentityUserSession *> * _Nonnull task) {
         request.accessToken = task.result.accessToken.tokenString;
         request.paginationToken = paginationToken;
         request.limit = [NSNumber numberWithInt:limit];
@@ -1515,7 +1516,7 @@ static const NSString * AWSCognitoIdentityUserUserAttributePrefix = @"userAttrib
 
 - (AWSTask<AWSCognitoIdentityUserUpdateDeviceStatusResponse *> *) updateDeviceStatus: (NSString *) deviceId remembered:(BOOL) remembered {
     AWSCognitoIdentityProviderUpdateDeviceStatusRequest *request = [AWSCognitoIdentityProviderUpdateDeviceStatusRequest new];
-    return [[self getSession] continueWithSuccessBlock:^id _Nullable(AWSTask<AWSCognitoIdentityUserSession *> * _Nonnull task) {
+    return [[self getSessionWithForceReload:NO] continueWithSuccessBlock:^id _Nullable(AWSTask<AWSCognitoIdentityUserSession *> * _Nonnull task) {
         request.accessToken = task.result.accessToken.tokenString;
         request.deviceKey = deviceId;
         request.deviceRememberedStatus = remembered ? AWSCognitoIdentityProviderDeviceRememberedStatusTypeRemembered : AWSCognitoIdentityProviderDeviceRememberedStatusTypeNotRemembered;
@@ -1540,7 +1541,7 @@ static const NSString * AWSCognitoIdentityUserUserAttributePrefix = @"userAttrib
 
 - (AWSTask<AWSCognitoIdentityUserGetDeviceResponse *> *) getDevice: (NSString *) deviceId {
     AWSCognitoIdentityProviderGetDeviceRequest *request = [AWSCognitoIdentityProviderGetDeviceRequest new];
-    return [[self getSession] continueWithSuccessBlock:^id _Nullable(AWSTask<AWSCognitoIdentityUserSession *> * _Nonnull task) {
+    return [[self getSessionWithForceReload:NO] continueWithSuccessBlock:^id _Nullable(AWSTask<AWSCognitoIdentityUserSession *> * _Nonnull task) {
         request.accessToken = task.result.accessToken.tokenString;
         request.deviceKey = deviceId;
         return [[self.pool.client getDevice:request] continueWithSuccessBlock:^id _Nullable(AWSTask<AWSCognitoIdentityProviderGetDeviceResponse *> * _Nonnull task) {
@@ -1576,7 +1577,7 @@ static const NSString * AWSCognitoIdentityUserUserAttributePrefix = @"userAttrib
 
 - (AWSTask *) forgetDevice: (NSString *) deviceId {
     AWSCognitoIdentityProviderForgetDeviceRequest * request = [AWSCognitoIdentityProviderForgetDeviceRequest new];
-    return [[self getSession] continueWithSuccessBlock:^id _Nullable(AWSTask<AWSCognitoIdentityUserSession *> * _Nonnull task) {
+    return [[self getSessionWithForceReload:NO] continueWithSuccessBlock:^id _Nullable(AWSTask<AWSCognitoIdentityUserSession *> * _Nonnull task) {
         request.accessToken = task.result.accessToken.tokenString;
         request.deviceKey = deviceId;
         return [[self.pool.client forgetDevice:request] continueWithSuccessBlock:^id _Nullable(AWSTask * _Nonnull task) {
